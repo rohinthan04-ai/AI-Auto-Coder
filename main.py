@@ -1,63 +1,73 @@
+
 import pyautogui
+import pyperclip
 import keyboard
-import time
+import threading
 
 from gemini import solve_screen
-from typer import type_code
 
 
-latest_code = None
+processing_lock = threading.Lock()
 
 
-def capture_and_solve():
-    global latest_code
+def capture_and_type():
 
-    print("\nCapturing screen...")
-
-    screenshot = pyautogui.screenshot()
-    screenshot.save("screen.png")
-
-    print("Screenshot captured!")
-    print("Sending screenshot to Gemini...")
+    # Prevent multiple F8 triggers while processing
+    if not processing_lock.acquire(blocking=False):
+        print("Already processing. Please wait...")
+        return
 
     try:
-        latest_code = solve_screen("screen.png")
+        print("\nCapturing screen...")
 
-        print("\n========== GEMINI CODE ==========\n")
-        print(latest_code)
-        print("\n=================================\n")
+        screenshot = pyautogui.screenshot()
+        screenshot.save("screen.png")
 
-        print("Code is ready.")
-        print("Click inside the coding editor.")
-        print("Press F9 to type the code.")
-        print("Press ESC to cancel.")
+        print("Screenshot captured!")
+        print("Analyzing with Gemini...")
+
+        code = solve_screen("screen.png")
+
+        if not code or not code.strip():
+            print("No code was generated.")
+            return
+
+        print("\n========== GENERATED CODE ==========\n")
+        print(code)
+        print("\n====================================\n")
+
+        print("Pasting code into editor...")
+
+        pyperclip.copy(code)
+        pyautogui.hotkey("ctrl", "v")
+
+        print("Code inserted successfully!")
 
     except Exception as e:
-        print("\nGemini error:")
-        print(e)
-        latest_code = None
+        print(f"\nError: {e}")
+
+    finally:
+        processing_lock.release()
 
 
 print("================================")
-print("       AI AutoCoder")
+print("          AI AutoCoder")
 print("================================")
-print("F8 = Capture + Solve")
-print("F9 = Type generated code")
-print("ESC = Stop")
+print("F8  = Analyze screen + Generate + Paste")
+print("ESC = Exit")
 print()
+print("Keep your code editor focused.")
+print("Waiting for hotkey...")
 
-while True:
+keyboard.add_hotkey(
+    "f8",
+    capture_and_type,
+    suppress=True,
+    trigger_on_release=True
+)
 
-    if keyboard.is_pressed("f8"):
-        capture_and_solve()
-        time.sleep(1)
-
-    if keyboard.is_pressed("f9") and latest_code:
-        type_code(latest_code)
-        time.sleep(1)
-
-    if keyboard.is_pressed("esc"):
-        print("Exiting...")
-        break
-
-    time.sleep(0.05)
+try:
+    keyboard.wait("esc")
+finally:
+    keyboard.unhook_all_hotkeys()
+    print("\nAI AutoCoder stopped.")

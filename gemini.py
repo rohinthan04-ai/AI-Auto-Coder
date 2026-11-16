@@ -38,7 +38,7 @@ Do not include any text before or after the code.
 """
 
     interaction = client.interactions.create(
-        model="gemini-3.8-flash",
+        model="gemini-3.5-flash-lite",
         input=[
             {
                 "type": "text",
